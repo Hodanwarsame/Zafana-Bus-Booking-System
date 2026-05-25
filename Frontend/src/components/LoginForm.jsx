@@ -17,7 +17,7 @@ const LoginForm = ({ onLogin }) => {
 
     const navigate = useNavigate()
     const location = useLocation();
-    const from = location.state?.from?.pathname || '/';
+    const from = location.state?.from || '/';
 
     // Load failed attempts from localStorage on mount
     useEffect(() => {
@@ -128,9 +128,14 @@ const LoginForm = ({ onLogin }) => {
             setMessage('Login Success')
             
             if (onLogin) {
-                onLogin(response.data.token, response.data.user_id)
+                onLogin(
+                    response.data.token,
+                    response.data.user_id,
+                    response.data.username || form.email,
+                    form.email
+                )
             }
-            navigate("/")
+            navigate(from, { replace: true })
         } catch (error) {
             // Increment failed attempts
             const newAttempts = failedAttempts + 1

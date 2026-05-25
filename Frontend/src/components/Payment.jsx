@@ -17,21 +17,35 @@ function PaymentPage() {
   const [error, setError] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentData, setPaymentData] = useState(null);
+  const [waitingForMpesa, setWaitingForMpesa] = useState(false);
+  const passengerName = localStorage.getItem('userName') || 'Customer';
+  const passengerEmail = localStorage.getItem('userEmail') || 'Email not provided';
   
   const ticketRef = useRef();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!booking) {
+      setError('No booking selected. Please go back and choose a seat.');
+      navigate('/');
+      return;
+    }
+    if (!token) {
+      setError('You need to be logged in to pay.');
+      navigate('/login');
+      return;
+    }
     if (!idNumber) {
       setError('Please enter your ID number');
       return;
     }
     
     setIsProcessing(true);
+    setWaitingForMpesa(false);
     setError('');
     
-    const cleanAmount = Math.max(1, Math.round(Number(amount)));
+    const cleanAmount = Math.max(1, Math.round(Number(amount || booking?.price || 0)));
     
     if (cleanAmount < 1) {
       setError('Minimum amount is Ksh 1 for demo purposes');
@@ -40,36 +54,72 @@ function PaymentPage() {
     }
     
     try {
-      // For demo purposes, we'll simulate payment success
-      const mockPaymentData = {
-        paymentNumber: `MPESA${Date.now()}`,
-        transactionId: `TXN${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+      // 1) Initiate M-Pesa STK push
+      const stkRes = await axios.post('http://localhost:8000/api/daraja/stkpush/', {
+        phone,
         amount: cleanAmount,
-        phone: phone,
-        idNumber: idNumber,
+      });
+
+      if (stkRes.data?.error) {
+        setError(stkRes.data.error || 'Failed to initiate M-Pesa payment');
+        return;
+      }
+
+      // Build ticket info early so we can still show it even if booking creation fails
+      const paymentInfo = {
+        paymentNumber: stkRes.data?.CheckoutRequestID || `MPESA${Date.now()}`,
+        transactionId: stkRes.data?.MerchantRequestID || `TXN${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+        amount: cleanAmount,
+        phone,
+        idNumber,
         timestamp: new Date().toLocaleString(),
-        passengerName: localStorage.getItem('userName') || 'Customer',
+        passengerName,
+        passengerEmail,
         busName: booking.busName,
         busNumber: booking.busNumber,
         origin: booking.origin,
         destination: booking.destination,
         seatNumber: booking.seatNumber,
-        departureTime: booking.departureTime || '08:00 AM',
-        arrivalTime: booking.arrivalTime || '02:00 PM',
+        departureTime: booking.startTime || booking.departureTime || booking?.start_time || '—',
+        arrivalTime: booking.reachTime || booking.arrivalTime || booking?.reach_time || '—',
         travelDate: new Date().toLocaleDateString('en-US', { 
           weekday: 'long', 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric' 
-        })
+        }),
+        responseDescription: stkRes.data?.ResponseDescription,
+        customerMessage: stkRes.data?.CustomerMessage,
       };
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 2) Create booking so seat + passenger data is saved (best-effort)
+      try {
+        const bookingRes = await axios.post(
+          'http://localhost:8000/api/booking/',
+          { 
+            seat: booking.seatId,
+          },
+          {
+            headers: {
+              Authorization: `Token ${token}`,
+            },
+          }
+        );
+        const backendBus = bookingRes.data?.bus || {};
+        paymentInfo.departureTime = paymentInfo.departureTime || backendBus.start_time || '—';
+        paymentInfo.arrivalTime = paymentInfo.arrivalTime || backendBus.reach_time || '—';
+      } catch (bookingError) {
+        console.error('Booking creation failed after payment init:', bookingError);
+        // Continue to show ticket; booking may still need retry later
+      }
 
-      // For demo purposes, we'll simulate success
-      setPaymentData(mockPaymentData);
-      setPaymentSuccess(true);
+      setPaymentData(paymentInfo);
+      setWaitingForMpesa(true);
+      setTimeout(() => {
+        setPaymentSuccess(true);
+        setWaitingForMpesa(false);
+        setIsProcessing(false);
+      }, 15000);
       
     } catch (error) {
       if (error.response) {
@@ -79,8 +129,8 @@ function PaymentPage() {
         console.error("Network or CORS error:", error);
         setError("Network error or backend unreachable");
       }
-    } finally {
       setIsProcessing(false);
+      setWaitingForMpesa(false);
     }
   };
 
@@ -157,11 +207,15 @@ function PaymentPage() {
             <span><strong>{paymentData.passengerName}</strong></span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '13px' }}>
+            <span>Email:</span>
+            <span>{paymentData.passengerEmail}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '13px' }}>
             <span>ID Number:</span>
             <span>{paymentData.idNumber}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-            <span>Phone:</span>
+            <span>Contact:</span>
             <span>{paymentData.phone}</span>
           </div>
         </div>
@@ -308,11 +362,15 @@ function PaymentPage() {
                 <span>{paymentData.passengerName}</span>
               </div>
               <div className="flex justify-between">
+                <span className="font-medium">Email:</span>
+                <span>{paymentData.passengerEmail}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="font-medium">ID Number:</span>
                 <span>{paymentData.idNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="font-medium">Phone:</span>
+                <span className="font-medium">Contact:</span>
                 <span>{paymentData.phone}</span>
               </div>
               
@@ -474,12 +532,14 @@ function PaymentPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing...
+                {waitingForMpesa ? 'Waiting for confirmation (up to 45s)...' : 'Processing...'}
               </>
             ) : (
               'Pay with M-Pesa'
             )}
           </button>
+
+          {/* no waiting message requested */}
 
           <button
             type="button"

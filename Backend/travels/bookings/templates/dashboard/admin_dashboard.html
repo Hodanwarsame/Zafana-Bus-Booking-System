@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 24px; background: #f5f5f5; }
+    h1 { margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; }
+    .card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+    .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .cta { display: inline-block; padding: 10px 14px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; }
+    .cta:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <h1>Admin Dashboard</h1>
+  <p class="muted">Today: {{ today }}</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Total Revenue</div>
+      <div class="value">Ksh {{ total_revenue }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Total Bookings</div>
+      <div class="value">{{ total_bookings }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Active Buses</div>
+      <div class="value">{{ active_buses }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Top Route</div>
+      <div class="value" style="font-size:18px">{{ top_route }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Passengers Today</div>
+      <div class="value">{{ passengers_today }}</div>
+    </div>
+  </div>
+
+  <a class="cta" href="{% url 'admin_dashboard_report' %}">Download CSV Report</a>
+</body>
+</html>
+

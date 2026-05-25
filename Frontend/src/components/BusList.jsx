@@ -29,7 +29,8 @@ const BusList = ({ token }) => {
 
   const handleViewSeats = (id) => {
     if (!token) {
-      navigate('/register')
+      // send user to login and come back to this bus after auth
+      navigate('/login', { state: { from: `/bus/${id}` } })
       return
     }
     navigate(`/bus/${id}`)
@@ -305,7 +306,7 @@ const BusList = ({ token }) => {
             <div>
               <h3 className="text-lg text-white font-semibold mb-3">Contact Us</h3>
               <p className="text-sm">Email: info@zafananaexpress.co.ke</p>
-              <p className="text-sm">Phone: +254 700 000 000</p>
+              <p className="text-sm">Phone: +254 718 629 335</p>
               <p className="text-sm">Address: Garissa Road, Wajir</p>
             </div>
           </div>

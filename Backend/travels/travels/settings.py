@@ -148,6 +148,9 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Redirect staff checks to admin login instead of /accounts/login
+LOGIN_URL = '/admin/login/'
+
 MPESA_ENVIRONMENT = 'sandbox'
 
 # Credentials for the daraja app

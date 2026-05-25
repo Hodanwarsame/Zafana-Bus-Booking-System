@@ -1,6 +1,9 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+
+
+
 const Wrapper = ({ token, handleLogout, children }) => {
   const navigate = useNavigate();
 
@@ -16,7 +19,7 @@ const Wrapper = ({ token, handleLogout, children }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             {/* Left side navigation */}
-            <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-6">
               <Link 
                 to="/" 
                 className="flex items-center text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -28,7 +31,6 @@ const Wrapper = ({ token, handleLogout, children }) => {
                 />
                 <span className="text-xl font-bold">Zafanana Express</span>
               </Link>
-            
               
               {token && (
                 <>
@@ -53,22 +55,12 @@ const Wrapper = ({ token, handleLogout, children }) => {
                   Logout
                 </button>
               ) : (
-                <>
-                  <Link 
-                    to="/register" 
-                    className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Sign Up
-                  </Link>
-
-                  <Link 
-                    to='/dashboard' 
-                    className="px-3 py-2 rounded-md text-sm font-medium text-blue-700 hover:text-indigo-700 hover:bg-gray-100 transition-colors"
-                  >
-                    Dashboard
-                  </Link>
-                
-                </>
+                <Link 
+                  to="/register" 
+                  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Sign Up
+                </Link>
               )}
             </div>
           </div>

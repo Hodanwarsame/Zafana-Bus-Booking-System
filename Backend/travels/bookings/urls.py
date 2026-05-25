@@ -1,6 +1,6 @@
 
 from django.urls import path
-from .views import RegisterView, LoginView, BusListCreateView, UserBookingView, BookingView, BusDetailView, DashboardView
+from .views import RegisterView, LoginView, BusListCreateView, UserBookingView, BookingView, BusDetailView, DashboardView, admin_dashboard, revenue_report
 from . import views
 urlpatterns = [
     path('buses/', BusListCreateView.as_view(), name='buslist'),
@@ -12,6 +12,9 @@ urlpatterns = [
     path('admin/dashboard/', DashboardView.as_view(), name='dashboard'),
     path('daraja/stkpush/', views.stk_push_payment, name='stk_push_payment'),
     path('daraja/confirmation/', views.mpesa_confirmation, name='mpesa_confirmation'),
+    # Simple HTML admin dashboard + CSV report (staff-only)
+    path('admin-dashboard/', admin_dashboard, name='admin_dashboard_page'),
+    path('admin-dashboard/report/', revenue_report, name='admin_dashboard_report'),
     
  
 ]

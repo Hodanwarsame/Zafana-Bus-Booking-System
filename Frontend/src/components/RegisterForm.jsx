@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const RegisterForm = ({ onRegister }) => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from || "/";
 
     const [form, setForm] = useState({
         username: "",
@@ -136,13 +138,18 @@ const RegisterForm = ({ onRegister }) => {
                 }
             );
 
-            // Update App state with token and user_id
+            // Update App state with token, user_id, username and email
             if (onRegister) {
-                onRegister(response.data.token, response.data.user_id);
+                onRegister(
+                    response.data.token,
+                    response.data.user_id,
+                    response.data.username || form.username,
+                    form.email
+                );
             }
 
-            // Redirect to BusList
-            navigate("/");
+            // Redirect back to the intended page (e.g., bus detail) or home
+            navigate(from, { replace: true });
         } catch (error) {
             // Better error messages - don't reveal too much
             const errorData = error.response?.data;

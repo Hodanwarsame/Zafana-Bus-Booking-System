@@ -1,5 +1,10 @@
 # authicate, permission, token, status, response, generics, apiviews
 from django.contrib.auth import authenticate
+from django.contrib.auth.decorators import user_passes_test
+from django.utils.decorators import method_decorator
+from django.shortcuts import render
+import csv
+from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
 from rest_framework import status, generics
@@ -13,6 +18,7 @@ from django_daraja.mpesa.core import MpesaClient
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
+from django.db.models.functions import TruncDate
 from collections import defaultdict
 
 
@@ -63,7 +69,30 @@ def stk_push_payment(request):
         )
 
         #  Make response always JSON serializable
-        return JsonResponse(response, safe=False)
+        try:
+            # Prefer the underlying requests.Response json if available
+            if hasattr(response, "response") and hasattr(response.response, "json"):
+                payload = response.response.json()
+            elif hasattr(response, "json"):
+                payload = response.json()
+            else:
+                import json
+                payload = json.loads(str(response))
+        except Exception as e:
+            print("STK serialization error:", str(e))
+            payload = {"raw": str(response)}
+
+        # Extract common STK fields to return a clean payload to the frontend
+        clean_payload = {
+            "MerchantRequestID": payload.get("MerchantRequestID") if isinstance(payload, dict) else None,
+            "CheckoutRequestID": payload.get("CheckoutRequestID") if isinstance(payload, dict) else None,
+            "ResponseCode": payload.get("ResponseCode") if isinstance(payload, dict) else None,
+            "ResponseDescription": payload.get("ResponseDescription") if isinstance(payload, dict) else None,
+            "CustomerMessage": payload.get("CustomerMessage") if isinstance(payload, dict) else None,
+            "raw": payload if not isinstance(payload, dict) else None
+        }
+
+        return JsonResponse(clean_payload, safe=False)
 
     except Exception as e:
         print("STK Push Error:", str(e))
@@ -88,7 +117,8 @@ class RegisterView(APIView):
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
-                'user_id': user.id
+                'user_id': user.id,
+                'username': user.username
             }, status= status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -110,7 +140,8 @@ class LoginView(APIView):
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token':token.key,
-                'user_id': user.id
+                'user_id': user.id,
+                'username': user.username
             }, status=status.HTTP_200_OK)
         else:
             return Response({'error':'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -158,6 +189,63 @@ class UserBookingView(APIView):
         serializer = BookingSerializer(bookings, many=True)
         return Response(serializer.data)
 
+
+@user_passes_test(lambda u: u.is_staff, login_url='/admin/login/')
+def admin_dashboard(request):
+    today = timezone.now().date()
+    bookings = Booking.objects.all()
+    todays_bookings = bookings.filter(booking_time__date=today)
+
+    total_revenue = sum(b.price for b in bookings)
+    total_bookings = bookings.count()
+    active_buses = Bus.objects.count()
+    passengers_today = todays_bookings.count()
+
+    route_counts = (
+        bookings.values('bus__origin', 'bus__destination')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    top_route = None
+    if route_counts:
+        top = route_counts[0]
+        top_route = f"{top['bus__origin']} → {top['bus__destination']}"
+
+    context = {
+        "total_revenue": total_revenue,
+        "total_bookings": total_bookings,
+        "active_buses": active_buses,
+        "top_route": top_route or "—",
+        "passengers_today": passengers_today,
+        "today": today,
+    }
+    return render(request, "dashboard/admin_dashboard.html", context)
+
+
+@user_passes_test(lambda u: u.is_staff, login_url='/admin/login/')
+def revenue_report(request):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="report_{timezone.now().date()}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(["Date", "Origin", "Destination", "Bookings", "Revenue"])
+
+    daily = (
+        Booking.objects.annotate(day=TruncDate('booking_time'))
+        .values('day', 'bus__origin', 'bus__destination')
+        .annotate(bookings=Count('id'), revenue=Sum('bus__price'))
+        .order_by('-day')
+    )
+    for row in daily:
+        writer.writerow([
+            row['day'],
+            row['bus__origin'],
+            row['bus__destination'],
+            row['bookings'],
+            row['revenue'],
+        ])
+
+    return response
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]

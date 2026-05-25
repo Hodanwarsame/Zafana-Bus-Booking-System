@@ -13,9 +13,9 @@ const BusSeats = ({ token }) => {
     const navigate = useNavigate()
 
     useEffect(() => {
-        // Check if user is logged in, if not redirect to register
+        // If not logged in, redirect to register and come back to this bus after auth
         if (!token) {
-            navigate('/register')
+            navigate('/login', { state: { from: `/bus/${busId}` } })
             return
         }
 
@@ -37,7 +37,7 @@ const BusSeats = ({ token }) => {
     const handleSeatSelect = (seatId) => {
         if (!token) {
           alert('Please sign up to book a seat');
-          navigate('/register');
+          navigate('/login', { state: { from: `/bus/${busId}` } });
           return;
         }
 
